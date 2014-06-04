@@ -1,0 +1,143 @@
+<!doctype html>
+<html>
+  <head>
+    <script src="third-party/underscore-min.js"></script>
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+      }
+
+      #content {
+        margin: 0 auto;
+      }
+
+      #content div {
+        line-height: 100vh;
+        text-align: center;
+        font-size: 11vw;
+        font-family: Courier,monospace;;
+      }
+
+      #content.tripping div {
+        display: none;
+      }
+    </style>
+  </head>
+  <body id="content">
+    <div id="overlay">#click</div>
+    <script>
+      function distance(p1, p2)
+      {
+        var xs = p2[0] - p1[0];
+        var ys = p2[1] - p1[1];
+        return Math.sqrt(xs * xs + ys * ys);
+      }
+
+      function clampComponent(num) {
+        return Math.max(0, Math.min(256, num));
+      }
+
+      var ChangeBackground = (function () {
+        'use strict';
+        var MOUSE_DURATION = 20;
+        var TRIP_DURATION = 200;
+        var COLOR_DIFF_MULTIPLIER = 1;
+        return {
+          init: function(el) {
+            this.el = el;
+            this.frameID = null;
+            this.lastColor = [256, 256, 256]
+            this.setColor(this.lastColor);
+            this.tripping = false;
+            this.lastPosition = null;
+            this.lastMouseTime = null;
+            this.lastTripTime = null;
+          },
+
+          toggle: function() {
+            if (!this.tripping) {
+              this.start();
+            } else {
+              this.stop();
+            }
+          },
+
+          start: function() {
+            this.el.classList.add('tripping');
+            this.tripping = true;
+            this.tripOut();
+          },
+
+          stop: function() {
+            cancelAnimationFrame(this.frameID);
+            this.tripping = false;
+            this.el.classList.remove('tripping');
+          },
+
+          tripOut: function() {
+            var self = this,
+                now = new Date().getTime(),
+                colorDiff = null,
+                speed = null;
+
+            if (now - this.lastTripTime > TRIP_DURATION) {
+              var center = [this.el.offsetWidth/2, this.el.offsetHeight/2];
+              var maxDistance = distance([0,0], [this.el.offsetWidth/2, this.el.offsetHeight/2]);
+
+              colorDiff = COLOR_DIFF_MULTIPLIER * (1 - (distance(this.lastPosition, center) / maxDistance))
+              speed = TRIP_DURATION / 1000;
+              this.transition(colorDiff, speed);
+              this.lastTripTime = now;
+            }
+
+            this.frameID = requestAnimationFrame(function() {
+              self.tripOut();
+            });
+          },
+
+          updateMousePosition: function(e) {
+            var now = new Date().getTime();
+            if (now - this.lastMouseTime > MOUSE_DURATION) {
+              this.lastPosition = [e.offsetX, e.offsetY];
+              this.lastMouseTime = now;
+            }
+          },
+
+          setColor: function(color) {
+            this.el.style['backgroundColor'] = 'rgb(' + this.lastColor.join(',') + ')';
+          },
+
+          transition: function(colorDiff, speed) {
+            this.el.style['transition'] = speed + 's';
+
+            var componentRange = Math.floor(colorDiff * 256 / 2);
+            this.lastColor = _.map(this.lastColor, function(component) {
+              return _.random(clampComponent(component - componentRange), clampComponent(component + componentRange));
+            });
+            this.setColor(this.lastColor);
+          }
+        };
+      })();
+
+
+      var content = document.getElementById('content')
+      var overlay = document.getElementById('overlay');
+      ChangeBackground.init(content);
+
+
+      content.addEventListener('mousemove', function(e) {
+        ChangeBackground.updateMousePosition(e);
+      });
+
+      content.addEventListener('click', function(e) {
+        ChangeBackground.updateMousePosition(e);
+        ChangeBackground.toggle();
+
+        //var colorDiff = 2 * (e.offsetY / this.offsetHeight)
+        //var speed = 2 * (e.offsetX / this.offsetWidth);
+        //ChangeBackground.transition(colorDiff, speed);
+      });
+    </script>
+  </body>
+</html>
